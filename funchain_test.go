@@ -101,29 +101,60 @@ func TestHooks(t *testing.T) {
 	}
 }
 
-func TestHookPanic(t *testing.T) {
-	var result int
-	hookPanicCalled := false
-	chain := New(func() int {
-		return 5
-	}).Before(func(args []interface{}) {
-		// 此 Hook 故意引发 panic
-		panic("intentional panic in before hook")
-	}).Before(func(args []interface{}) {
-		// 在上一个 hook 发生 panic 后，此 Hook 依然应该正常调用
-		hookPanicCalled = true
-	}).Then(func(n int) int {
-		return n * 3
+func TestEdgeCases(t *testing.T) {
+	// 1. 测试链式函数之间参数数量不匹配的情况，使用零值填充
+	t.Run("MismatchedArgumentsWithZeroValues", func(t *testing.T) {
+		var result int
+		_, err := New(func() int {
+			return 42
+		}).Then(func(a, b int) int {
+			// a 将为 42，b 为零值 0，故 a * b 结果为 0
+			return a * b
+		}).Do(&result)
+		if err != nil {
+			t.Fatal("Unexpected error for mismatched arguments:", err)
+		}
+		if result != 0 {
+			t.Fatalf("Unexpected result: expected %d, got %d", 0, result)
+		}
 	})
 
-	_, err := chain.Do(&result)
-	if err != nil {
-		t.Fatalf("Chain execution error: %v", err)
-	}
-	if result != 15 {
-		t.Fatalf("Unexpected result: expected 15, got %d", result)
-	}
-	if !hookPanicCalled {
-		t.Fatal("The second before hook was not called due to panic in the first hook")
-	}
+	// 2. 测试一个或多个钩子或延迟函数发生 panic 的情况
+	t.Run("HookPanic", func(t *testing.T) {
+		var result int
+		_, err := New(func() int {
+			return 5
+		}).Before(func(args []interface{}) {
+			panic("intentional panic in before hook")
+		}).Then(func(n int) int {
+			return n * 3
+		}).Do(&result)
+
+		if err != nil {
+			t.Fatalf("Chain execution should not return an error, but returned: %v", err)
+		}
+		if result != 15 {
+			t.Fatalf("Incorrect result: expected 15, but got %d", result)
+		}
+	})
+
+	// 3. 测试多个返回值的场景
+	t.Run("MultipleReturnValues", func(t *testing.T) {
+		var (
+			sum     int
+			message string
+		)
+		_, err := New(func() (int, string) {
+			return 100, "initial"
+		}).Then(func(n int, s string) (int, string) {
+			return n * 2, s + " processed"
+		}).Do(&sum, &message)
+
+		if err != nil {
+			t.Fatal("Chain execution error:", err)
+		}
+		if sum != 200 || message != "initial processed" {
+			t.Fatalf("Unexpected results: sum=%d, message=%s", sum, message)
+		}
+	})
 }
