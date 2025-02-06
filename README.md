@@ -53,7 +53,7 @@ func main() {
         return 0, errors.New("发生错误")
     }).Then(func(n int) string {
         return fmt.Sprintf("数字是：%d", n)
-    }).ErrorHook(func(args []interface{}, err error) {
+    }).OnError(func(args []interface{}, err error) {
         fmt.Printf("发生错误：%v，参数：%v\n", err, args)
     }).Do()
 
@@ -99,29 +99,44 @@ func main() {
 
 ## API 详解
 
-### `New(fn interface{}) *FunChain`
+### `New(fns ...interface{}) *FunChain`
 
-创建新的函数链。参数 `fn` 可以是任意类型的函数，包括：
-
-- 无参数函数
-- 带返回值的函数
-- 返回 error 的函数
-- 多返回值函数
+创建新的函数链。可以传入一个或多个待执行的函数。每个函数可以是任意类型，不限制参数和返回值的数量。如果传入的参数不是函数，则会被直接跳过。
 
 ```go
-chain := funchain.New(func() string { return "hello" })
+chain := funchain.New(
+    func() int {
+        return 42
+    },
+    func(n int) string {
+        return fmt.Sprintf("The number is: %d", n)
+    },
+)
 ```
 
-### `Then(fn interface{}) *FunChain`
+### `Then(fns ...interface{}) *FunChain`
 
-添加下一个要执行的函数。特点：
+在使用 New 方法创建函数链后，Then 方法用于添加后续的执行步骤，类似于 Promise 中的 then。与 New 方法不同，New 主要负责初始化链，而 Then 则实现了连续调用的效果，每一步函数的返回值会自动传递给下一步函数，达到自动链式处理的目的。
+
+特点：
 
 - 自动参数传递：前一个函数的返回值会自动传递给下一个函数
 - 类型匹配：确保函数间参数类型兼容
 - 支持任意数量的参数和返回值
 
+示例：
+
 ```go
-chain.Then(func(s string) int { return len(s) })
+chain := funchain.New(func() int {
+    return 42
+}).Then(
+    func(n int) string {
+        return fmt.Sprintf("The number is: %d", n)
+    },
+    func(s string) {
+        fmt.Println(s)
+    },
+)
 ```
 
 ### `Defer(fs ...func()) *FunChain`
@@ -136,7 +151,7 @@ chain.Then(func(s string) int { return len(s) })
 chain.Defer(cleanup1, cleanup2)
 ```
 
-### `ErrorHook(hooks ...ErrorHookFunc) *FunChain`
+### `OnError(hooks ...ErrorHookFunc) *FunChain`
 
 添加错误处理钩子函数：
 
@@ -146,7 +161,7 @@ chain.Defer(cleanup1, cleanup2)
 - 常用于错误日志、监控等
 
 ```go
-chain.ErrorHook(func(args []interface{}, err error) {
+chain.OnError(func(args []interface{}, err error) {
     log.Printf("错误：%v，参数：%v", err, args)
 })
 ```
@@ -194,6 +209,10 @@ func main() {
         log.Printf("参数: %v, 返回值：%v", input, output)
     }).Do(&result)
 
+    if err != nil {
+        fmt.Println("错误：", err)
+        return
+    }
     fmt.Println(result) // 输出: 42
 }
 ```
@@ -252,7 +271,7 @@ FunChain 的错误处理遵循以下规则：
 
 1. 使用 defer 进行资源清理
 2. 合理规划函数的参数和返回值
-3. 使用 ErrorHook 进行错误监控和日志记录
+3. 使用 OnError 进行错误监控和日志记录
 4. 避免在链中使用过于复杂的函数签名
 
 ## 注意事项

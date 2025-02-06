@@ -30,20 +30,24 @@ type BeforeHookFunc func(input []interface{})
 // output: function return values
 type AfterHookFunc func(input []interface{}, output []interface{})
 
-// New creates a new function chain.
-// fn: the initial function to be executed.
-// fn can be any type of function, with no restrictions on the number of parameters and return values.
-// Parameter types between functions must be compatible.
-// Functions cannot return more than one error.
-func New(fn interface{}) *FunChain {
+// New 创建一个新的函数链。
+// fns: 一个或多个待执行的函数。
+// 每个函数可以是任意类型，不限制参数和返回值的数量。
+// 如果传入的参数不是函数，则会被直接跳过，不会报错。
+func New(fns ...interface{}) *FunChain {
 	fc := &FunChain{
-		funcs:       make([]interface{}, 0, 1),
+		funcs:       make([]interface{}, 0, len(fns)),
 		defers:      make([]func(), 0),
 		beforeHooks: make([]BeforeHookFunc, 0),
 		afterHooks:  make([]AfterHookFunc, 0),
 		errHooks:    make([]ErrorHookFunc, 0),
 	}
-	fc.funcs = append(fc.funcs, fn)
+	// 检查每个传入的参数，如果是函数则加入链中，否则跳过
+	for _, fn := range fns {
+		if reflect.TypeOf(fn).Kind() == reflect.Func {
+			fc.funcs = append(fc.funcs, fn)
+		}
+	}
 	return fc
 }
 
@@ -53,8 +57,12 @@ func New(fn interface{}) *FunChain {
 // Return values from the previous function are automatically passed to the next function, except for errors.
 // Parameter types between functions must be compatible.
 // Functions cannot return more than one error.
-func (fc *FunChain) Then(fn interface{}) *FunChain {
-	fc.funcs = append(fc.funcs, fn)
+func (fc *FunChain) Then(fns ...interface{}) *FunChain {
+	for _, fn := range fns {
+		if reflect.TypeOf(fn).Kind() == reflect.Func { // 检查是否为函数类型
+			fc.funcs = append(fc.funcs, fn)
+		}
+	}
 	return fc
 }
 
@@ -79,9 +87,9 @@ func (fc *FunChain) After(hooks ...AfterHookFunc) *FunChain {
 	return fc
 }
 
-// ErrorHook adds error handling functions.
+// OnError adds error handling functions.
 // hooks: list of error handling functions.
-func (fc *FunChain) ErrorHook(hooks ...ErrorHookFunc) *FunChain {
+func (fc *FunChain) OnError(hooks ...ErrorHookFunc) *FunChain {
 	fc.errHooks = append(fc.errHooks, hooks...)
 	return fc
 }

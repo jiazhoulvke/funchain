@@ -54,11 +54,14 @@ func TestFuncChain(t *testing.T) {
 	}
 
 	// Error handling test
-	_, err = New(func() error {
-		return nil
-	}).Then(func() error {
-		return errors.New("func2 error")
-	}).ErrorHook(func(args []interface{}, err error) {
+	_, err = New(
+		func() error {
+			return nil
+		},
+		func() error {
+			return errors.New("func2 error")
+		},
+	).OnError(func(args []interface{}, err error) {
 		t.Logf("Error hook called with args: %v, err: %v", args, err)
 	}).Do()
 	if err == nil {
@@ -169,7 +172,7 @@ func TestFunctionPanic(t *testing.T) {
 			panic("intentional panic in function")
 		}).Then(func(n int) int {
 			return n * 2
-		}).ErrorHook(func(args []interface{}, err error) {
+		}).OnError(func(args []interface{}, err error) {
 			panicCalled = true
 			t.Logf("Caught panic: %v, Args: %v", err, args)
 		}).Do(&result)
