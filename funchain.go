@@ -2,6 +2,7 @@ package funchain
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -177,7 +178,7 @@ func execFunc(f interface{}, args []interface{}) ([]interface{}, error) {
 	if funcType.Kind() != reflect.Func {
 		return nil, errors.New("not a function")
 	}
-	// Use reflect.TypeOf((*error)(nil)).Elem() for robust error type checking.
+	// 使用 reflect.TypeOf((*error)(nil)).Elem() 进行健壮的 error 类型判断。
 	var errorType = reflect.TypeOf((*error)(nil)).Elem()
 	errIndex := -1
 	for i := 0; i < funcType.NumOut(); i++ {
@@ -203,9 +204,21 @@ func execFunc(f interface{}, args []interface{}) ([]interface{}, error) {
 		// 例如，int 类型将补上 0，string 类型则补上 ""，从而保证函数调用的参数数量与签名一致。
 		in = append(in, reflect.Zero(funcType.In(i)))
 	}
-	out := rf.Call(in)
-	result := make([]interface{}, 0, 1)
+	var out []reflect.Value
 	var err error
+	// 捕获 panic 并返回错误
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic occurred: %v", r)
+			}
+		}()
+		out = rf.Call(in)
+	}()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, 0, 1)
 	for i, returnVal := range out {
 		if i == errIndex {
 			if e, ok := returnVal.Interface().(error); ok {

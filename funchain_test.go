@@ -158,3 +158,30 @@ func TestEdgeCases(t *testing.T) {
 		}
 	})
 }
+
+func TestFunctionPanic(t *testing.T) {
+	// 测试函数在执行过程中发生 panic 的情况
+	t.Run("FunctionPanic", func(t *testing.T) {
+		var result int
+		panicCalled := false
+
+		_, err := New(func() int {
+			panic("intentional panic in function")
+		}).Then(func(n int) int {
+			return n * 2
+		}).ErrorHook(func(args []interface{}, err error) {
+			panicCalled = true
+			t.Logf("Caught panic: %v, Args: %v", err, args)
+		}).Do(&result)
+
+		if err == nil {
+			t.Fatal("Expected error due to panic in function, but got nil")
+		}
+		if !panicCalled {
+			t.Fatal("The error hook was not called due to panic in the function")
+		}
+		if result != 0 {
+			t.Fatalf("Expected result to be 0, but got %d", result)
+		}
+	})
+}
