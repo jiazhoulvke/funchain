@@ -27,23 +27,41 @@ go get github.com/jiazhoulvke/funchain@latest
 package main
 
 import (
-    "fmt"
-    "github.com/jiazhoulvke/funchain"
+	"encoding/json"
+	"fmt"
+
+	"github.com/jiazhoulvke/funchain"
 )
 
 func main() {
-    var result string
-    results, err := funchain.New(func() int {
-        return 42
-    }).Then(func(n int) string {
-        return fmt.Sprintf("The number is: %d", n)
-    }).Do(&result)
-
-    if err != nil {
-        fmt.Println("Error:", err)
-        return
-    }
-    fmt.Println(result) // Output: The number is: 42
+	var result string
+	getUserId := func() int64 {
+		// Simulate fetching user ID
+		return 7
+	}
+	getUserInfo := func(userId int64) (map[string]interface{}, error) {
+		// Simulate fetching user info from the database
+		return map[string]interface{}{
+			"name": "Zhang San",
+		}, nil // If error is not nil, the function chain will stop, and subsequent functions won't be executed
+	}
+	encodeUserInfo := func(user map[string]interface{}) (string, error) {
+		// Simulate converting user info to a string
+		data, err := json.Marshal(user)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+	_, err := funchain.New(
+		getUserId,
+		getUserInfo,
+		encodeUserInfo,
+	).Do(&result) // Fetch user info
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(result) // Output: {"name":"Zhang San"}
 }
 ```
 

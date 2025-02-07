@@ -104,7 +104,7 @@ func (fc *FunChain) Do(out ...interface{}) (result []interface{}, err error) {
 			// Protect against panic in a defer function.
 			defer func() {
 				if r := recover(); r != nil {
-					// Optionally log the panic from defer hook.
+					fmt.Println("Panic from defer hook:", r)
 				}
 			}()
 			fn()
@@ -121,7 +121,7 @@ func (fc *FunChain) Do(out ...interface{}) (result []interface{}, err error) {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						// Optionally log or ignore panic from before hook.
+						fmt.Println("Panic from before hook:", r)
 					}
 				}()
 				hook(args)
@@ -136,7 +136,7 @@ func (fc *FunChain) Do(out ...interface{}) (result []interface{}, err error) {
 			func() {
 				defer func() {
 					if r := recover(); r != nil {
-						// Optionally log or ignore panic from after hook.
+						fmt.Println("Panic from after hook:", r)
 					}
 				}()
 				hook(args, args2)
@@ -186,11 +186,9 @@ func execFunc(f interface{}, args []interface{}) ([]interface{}, error) {
 	if funcType.Kind() != reflect.Func {
 		return nil, errors.New("not a function")
 	}
-	// 使用 reflect.TypeOf((*error)(nil)).Elem() 进行健壮的 error 类型判断。
-	var errorType = reflect.TypeOf((*error)(nil)).Elem()
 	errIndex := -1
 	for i := 0; i < funcType.NumOut(); i++ {
-		if funcType.Out(i) == errorType {
+		if funcType.Out(i).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
 			if errIndex != -1 {
 				return nil, errors.New("more than one error")
 			}
@@ -218,7 +216,7 @@ func execFunc(f interface{}, args []interface{}) ([]interface{}, error) {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				err = fmt.Errorf("panic occurred: %v", r)
+				err = fmt.Errorf("panic from function %s: %v", funcType.Name(), r)
 			}
 		}()
 		out = rf.Call(in)

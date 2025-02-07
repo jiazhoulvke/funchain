@@ -29,19 +29,41 @@ go get github.com/jiazhoulvke/funchain@latest
 package main
 
 import (
-    "fmt"
-    "github.com/jiazhoulvke/funchain"
+	"encoding/json"
+	"fmt"
+
+	"github.com/jiazhoulvke/funchain"
 )
 
 func main() {
-    var result string
-    results, err := funchain.New(func() int {
-        return 42
-    }).Then(func(n int) string {
-        return fmt.Sprintf("数字是：%d", n)
-    }).Do(&result)
-
-    fmt.Println(result) // 输出: 数字是：42
+	var result string
+	getUserId := func() int64 {
+		// 模拟获取用户ID
+		return 7
+	}
+	getUserInfo := func(userId int64) (map[string]interface{}, error) {
+		// 模拟从数据库获取用户信息
+		return map[string]interface{}{
+			"name": "Zhang San",
+		}, nil // 如果 error 不是返回 nil 的话，函数链就会终止，不会再执行下面的函数
+	}
+	encodeUserInfo := func(user map[string]interface{}) (string, error) {
+		// 模拟将用户信息转换为字符串
+		data, err := json.Marshal(user)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+	_, err := funchain.New(
+		getUserId,
+		getUserInfo,
+		encodeUserInfo,
+	).Do(&result) // 获取用户信息
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(result) // 输出：{"name":"Zhang San"}
 }
 ```
 
